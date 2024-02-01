@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"os"
 
 	"golang.org/x/sys/unix"
 
@@ -138,6 +139,10 @@ func (t *Tracee) processSchedProcessExec(event *trace.Event) error {
 		// from the current event might have already died)
 		pids := t.pidsInMntns.GetBucket(uint32(event.MountNS))
 		for _, pid := range pids { // will break on success
+			procFilePath := fmt.Sprintf("/proc/%s", strconv.Itoa(int(pid)));
+			if _, err := os.Stat(procFilePath); os.IsNotExist(err) {
+				continue;
+			}
 			err = nil
 			sourceFilePath := fmt.Sprintf("/proc/%s/root%s", strconv.Itoa(int(pid)), filePath)
 			sourceFileCtime, err := parse.ArgVal[uint64](event.Args, "ctime")

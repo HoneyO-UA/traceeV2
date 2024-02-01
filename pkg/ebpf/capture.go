@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/aquasecurity/tracee/pkg/bufferdecoder"
 	"github.com/aquasecurity/tracee/pkg/errfmt"
@@ -85,20 +86,23 @@ func (t *Tracee) handleFileCaptures(ctx context.Context) {
 				} else {
 					operation = "write"
 				}
+				timeStamp := time.Now().UnixMicro()
 				if vfsMeta.Pid == 0 {
 					filename = fmt.Sprintf(
-						"%s.dev-%d.inode-%d",
+						"%s.dev-%d.inode-%d-%d",
 						operation,
 						vfsMeta.DevID,
 						vfsMeta.Inode,
+						timeStamp,
 					)
 				} else { // Only applies for write to /dev/null
 					filename = fmt.Sprintf(
-						"%s.dev-%d.inode-%d.pid-%d",
+						"%s.dev-%d.inode-%d.pid-%d-%d",
 						operation,
 						vfsMeta.DevID,
 						vfsMeta.Inode,
 						vfsMeta.Pid,
+						timeStamp,
 					)
 				}
 			} else if meta.BinType == bufferdecoder.SendMprotect {
@@ -116,7 +120,8 @@ func (t *Tracee) handleFileCaptures(ctx context.Context) {
 					// To get the current ("wall") time, we add the boot time into it.
 					mprotectMeta.Ts += t.bootTime
 				}
-				filename = fmt.Sprintf("bin.pid-%d.ts-%d", mprotectMeta.Pid, mprotectMeta.Ts)
+				timeStamp := time.Now().UnixMicro()
+				filename = fmt.Sprintf("bin.pid-%d.ts-%d-%d", mprotectMeta.Pid, mprotectMeta.Ts, timeStamp)
 			} else if meta.BinType == bufferdecoder.SendKernelModule {
 				err = metaBuffDecoder.DecodeKernelModuleMeta(&kernelModuleMeta)
 				if err != nil {
@@ -124,14 +129,15 @@ func (t *Tracee) handleFileCaptures(ctx context.Context) {
 					continue
 				}
 				filename = "module"
+				timeStamp := time.Now().UnixMicro()
 				if kernelModuleMeta.DevID != 0 {
-					filename = fmt.Sprintf("%s.dev-%d", filename, kernelModuleMeta.DevID)
+					filename = fmt.Sprintf("%s.dev-%d-%d", filename, kernelModuleMeta.DevID, timeStamp)
 				}
 				if kernelModuleMeta.Inode != 0 {
-					filename = fmt.Sprintf("%s.inode-%d", filename, kernelModuleMeta.Inode)
+					filename = fmt.Sprintf("%s.inode-%d-%d", filename, kernelModuleMeta.Inode, timeStamp)
 				}
 				if kernelModuleMeta.Pid != 0 {
-					filename = fmt.Sprintf("%s.pid-%d", filename, kernelModuleMeta.Pid)
+					filename = fmt.Sprintf("%s.pid-%d-%d", filename, kernelModuleMeta.Pid, timeStamp)
 				}
 			} else if meta.BinType == bufferdecoder.SendBpfObject {
 				err = metaBuffDecoder.DecodeBpfObjectMeta(&bpfObjectMeta)
@@ -139,12 +145,13 @@ func (t *Tracee) handleFileCaptures(ctx context.Context) {
 					t.handleError(err)
 					continue
 				}
+				timeStamp := time.Now().UnixMicro()
 				bpfName := string(bytes.TrimRight(bpfObjectMeta.Name[:], "\x00"))
-				filename = fmt.Sprintf("bpf.name-%s", bpfName)
+				filename = fmt.Sprintf("bpf.name-%s-%d", bpfName, timeStamp)
 				if bpfObjectMeta.Pid != 0 {
-					filename = fmt.Sprintf("%s.pid-%d", filename, bpfObjectMeta.Pid)
+					filename = fmt.Sprintf("%s.pid-%d-%d", filename, bpfObjectMeta.Pid, timeStamp)
 				}
-				filename = fmt.Sprintf("%s.%d", filename, bpfObjectMeta.Rand)
+				filename = fmt.Sprintf("%s.%d-%d", filename, bpfObjectMeta.Rand, timeStamp)
 			} else {
 				t.handleError(errfmt.Errorf("unknown binary type: %d", meta.BinType))
 				continue
